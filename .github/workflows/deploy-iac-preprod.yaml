@@ -1,0 +1,48 @@
+name: Deploy to Preprod
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: preprod-deployment
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd src/cdk
+          npm ci
+
+      - name: Configure AWS Credentials for Preprod
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}
+          aws-region: sa-east-1
+
+      - name: Deploy to Preprod
+        run: |
+          cd src/cdk
+          npx cdk deploy --all --context environment=preprod --require-approval never
+        env:
+          BRANCH_NAME: ${{ github.event.inputs.branch || github.ref_name }}
+          PREPROD_AWS_ACCOUNT_ID: ${{ secrets.PREPROD_AWS_ACCOUNT_ID }}
