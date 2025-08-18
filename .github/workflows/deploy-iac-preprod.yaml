@@ -15,6 +15,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,11 +34,21 @@ jobs:
           cd src/cdk
           npm ci
 
+      - name: Deployment Info
+        run: |
+          echo "🚀 Deploying to Preprod Environment"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.event.inputs.branch || github.ref_name }}"
+          echo "Environment: preprod-deployment"
+          echo "Triggered by: ${{ github.actor }}"
+
       - name: Configure AWS Credentials for Preprod
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}
           aws-region: sa-east-1
+          role-session-name: GitHubActions-${{ github.run_id }}
+          mask-aws-account-id: true
 
       - name: Deploy to Preprod
         run: |
