@@ -1,4 +1,3 @@
-import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../../bin/config/environments';
@@ -12,6 +11,8 @@ export class NotesVpc extends Construct {
   public readonly databaseSubnets: ec2.SubnetSelection;
   public readonly applicationSubnets: ec2.SubnetSelection;
   public readonly publicSubnets: ec2.SubnetSelection;
+  public readonly databaseSecurityGroup: ec2.SecurityGroup;
+  public readonly applicationSecurityGroup: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: NotesVpcProps) {
     super(scope, id);
@@ -63,11 +64,13 @@ export class NotesVpc extends Construct {
       subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
     };
 
+    // Create security groups first
+    const securityGroups = this.createSecurityGroups(environmentConfig);
+    this.databaseSecurityGroup = securityGroups.databaseSecurityGroup;
+    this.applicationSecurityGroup = securityGroups.applicationSecurityGroup;
+
     // Create VPC Endpoints for cost optimization (avoid NAT Gateway charges for AWS services)
     this.createVpcEndpoints();
-
-    // Add common security groups
-    this.createSecurityGroups();
   }
 
   private createVpcEndpoints(): void {
@@ -84,63 +87,37 @@ export class NotesVpc extends Construct {
     });
   }
 
-  private createSecurityGroups(): void {
+  private createSecurityGroups(environmentConfig: EnvironmentConfig): {
+    databaseSecurityGroup: ec2.SecurityGroup;
+    applicationSecurityGroup: ec2.SecurityGroup;
+  } {
     // Database Security Group
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'DatabaseSecurityGroup', {
       vpc: this.vpc,
       description: 'Security group for RDS database',
-      securityGroupName: `${this.node.tryGetContext('environmentConfig')?.resourcePrefix || 'eah'}-db-sg`,
+      securityGroupName: `${environmentConfig.resourcePrefix}-db-sg`,
     });
 
     // Application Security Group  
     const appSecurityGroup = new ec2.SecurityGroup(this, 'ApplicationSecurityGroup', {
       vpc: this.vpc,
       description: 'Security group for application servers',
-      securityGroupName: `${this.node.tryGetContext('environmentConfig')?.resourcePrefix || 'eah'}-app-sg`,
-    });
-
-    // Load Balancer Security Group
-    const albSecurityGroup = new ec2.SecurityGroup(this, 'LoadBalancerSecurityGroup', {
-      vpc: this.vpc,
-      description: 'Security group for Application Load Balancer',
-      securityGroupName: `${this.node.tryGetContext('environmentConfig')?.resourcePrefix || 'eah'}-alb-sg`,
+      securityGroupName: `${environmentConfig.resourcePrefix}-app-sg`,
     });
 
     // Configure security group rules
-    this.configureSecurityGroupRules(dbSecurityGroup, appSecurityGroup, albSecurityGroup);
-
-    // Store security groups for external access
-    (this as any).databaseSecurityGroup = dbSecurityGroup;
-    (this as any).applicationSecurityGroup = appSecurityGroup;
-    (this as any).loadBalancerSecurityGroup = albSecurityGroup;
+    this.configureSecurityGroupRules(dbSecurityGroup, appSecurityGroup);
+    
+    return {
+      databaseSecurityGroup: dbSecurityGroup,
+      applicationSecurityGroup: appSecurityGroup,
+    };
   }
 
   private configureSecurityGroupRules(
     dbSg: ec2.SecurityGroup,
-    appSg: ec2.SecurityGroup,
-    albSg: ec2.SecurityGroup
+    appSg: ec2.SecurityGroup
   ): void {
-    // ALB accepts HTTPS traffic from internet
-    albSg.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(443),
-      'HTTPS from internet'
-    );
-
-    // ALB accepts HTTP traffic from internet (for redirect to HTTPS)
-    albSg.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(80),
-      'HTTP from internet (redirect to HTTPS)'
-    );
-
-    // Application accepts traffic from ALB
-    appSg.addIngressRule(
-      albSg,
-      ec2.Port.tcp(3000), // Adjust port based on your application
-      'HTTP from Load Balancer'
-    );
-
     // Database accepts connections from application
     dbSg.addIngressRule(
       appSg,
@@ -163,16 +140,5 @@ export class NotesVpc extends Construct {
     );
   }
 
-  // Getter methods for security groups
-  public get databaseSecurityGroup(): ec2.SecurityGroup {
-    return (this as any).databaseSecurityGroup;
-  }
 
-  public get applicationSecurityGroup(): ec2.SecurityGroup {
-    return (this as any).applicationSecurityGroup;
-  }
-
-  public get loadBalancerSecurityGroup(): ec2.SecurityGroup {
-    return (this as any).loadBalancerSecurityGroup;
-  }
 }

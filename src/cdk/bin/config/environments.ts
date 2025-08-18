@@ -1,7 +1,9 @@
+import process from "node:process";
+
 export interface EnvironmentConfig {
   account: string;
   region: string;
-  environment: 'preprod';
+  environment: 'preprod' | 'prod';
   resourcePrefix: string;
   dbInstanceType: 'db.t3.micro';
   multiAz: boolean;
@@ -27,6 +29,16 @@ export const environments: Record<string, EnvironmentConfig> = {
     account: getRequiredEnvVar('PREPROD_AWS_ACCOUNT_ID', 'preprod'),
     region: 'sa-east-1',
     environment: 'preprod',
+    resourcePrefix: 'eah-preprod',
+    dbInstanceType: 'db.t3.micro',
+    multiAz: false,
+    deletionProtection: false,
+    allocatedStorage: 20,
+  },
+  prod: {
+    account: getRequiredEnvVar('PREPROD_AWS_ACCOUNT_ID', 'preprod'),
+    region: 'sa-east-1',
+    environment: 'prod',
     resourcePrefix: 'eah-preprod',
     dbInstanceType: 'db.t3.micro',
     multiAz: false,

@@ -27,10 +27,10 @@ This document outlines the comprehensive development plan for Everything At Hand
 - **AI**: OpenAI SDK
 
 ### Infrastructure
-- **IaC**: AWS CDK
-- **Cloud Provider**: AWS
-- **Deployment**: Vercel + GitHub Actions
-- **Architecture**: Cell-based (preprod/prod isolation)
+- **IaC**: AWS CDK (for database and storage only)
+- **Cloud Provider**: AWS (database/storage), Vercel (application hosting)
+- **Deployment**: Vercel for Next.js app + GitHub Actions for AWS infrastructure
+- **Architecture**: Hybrid - Vercel hosting with AWS backend services
 
 ## Database Schema
 
@@ -102,15 +102,15 @@ enum Role {
 
 ## Cell-Based Architecture
 
-### Multi-Stack Architecture with Single Deployment
+### Hybrid Architecture with AWS Backend Services
 
-The infrastructure uses multiple CDK stacks that can be deployed together or individually. This approach provides:
+The infrastructure uses AWS CDK for backend services only, with the Next.js application hosted on Vercel. This approach provides:
 
-- **Modular Design**: Separate stacks for different resource types (stateful, compute, etc.)
-- **Flexible Deployment**: Deploy all stacks at once or specific stacks individually
-- **Code Reusability**: Each stack definition serves both environments
+- **Separation of Concerns**: AWS handles data layer (database, storage), Vercel handles application layer
+- **Scalability**: Vercel provides automatic scaling for the Next.js app
+- **Cost Efficiency**: No need for compute infrastructure on AWS
 - **Environment Context**: Different configurations via CDK context parameters
-- **Future Extensibility**: Easy to add new stacks (compute, monitoring, etc.)
+- **Simplified Deployment**: Vercel handles application deployment, CDK handles infrastructure
 
 **Deployment Commands:**
 ```bash
@@ -120,9 +120,9 @@ cdk deploy --all --context environment=preprod
 # Deploy all stacks to production account  
 cdk deploy --all --context environment=prod
 
-# Deploy specific stack only
+# Deploy specific stack only (currently only stateful stack exists)
 cdk deploy NotesStatefulStack --context environment=preprod
-cdk deploy NotesComputeStack --context environment=prod
+cdk deploy NotesStatefulStack --context environment=prod
 
 # Deploy with stack pattern
 cdk deploy "Notes*" --context environment=preprod
@@ -130,19 +130,21 @@ cdk deploy "Notes*" --context environment=preprod
 
 ### Environment Isolation
 
-**Preprod Cell:**
+**Preprod Environment:**
 - AWS Account: Dedicated preprod AWS account
 - IAM User: `eah-preprod`
 - S3 Bucket: `eah-preprod-images-{suffix}`
 - RDS Instance: `eah-preprod-db`
 - Clerk Tenant: `preprod-eah`
+- Vercel Project: Connected to preprod branch
 
-**Production Cell:**
+**Production Environment:**
 - AWS Account: Dedicated production AWS account
 - IAM User: `eah-prod`
 - S3 Bucket: `eah-prod-images-{suffix}`
 - RDS Instance: `eah-prod-db`
 - Clerk Tenant: `prod-eah`
+- Vercel Project: Connected to main branch
 
 ## Implementation Phases
 
@@ -289,7 +291,13 @@ NotesStatefulStack (depends on BaseCdkPermissionsStack)
 ├── Application S3 permissions
 ├── VPC Management permissions
 ├── Secrets Manager permissions
-└── Actual infrastructure resources
+└── Backend infrastructure resources (database, storage, networking)
+
+Vercel Deployment (separate)
+├── Next.js application hosting
+├── Automatic scaling and CDN
+├── Environment variables from AWS
+└── Connected to GitHub for CI/CD
 ```
 
 ### **Environment Configuration**
@@ -688,10 +696,11 @@ export class NotesComputeStack extends cdk.Stack {
 ## Deployment Flow
 
 1. **Development** → Push to `develop` branch
-2. **Preprod Deployment** → Automatic via GitHub Actions
-3. **Testing** → Manual testing in preprod environment
-4. **Production Deployment** → Push to `main` branch (with approval gates)
-5. **Monitoring** → Continuous monitoring in both environments
+2. **AWS Infrastructure Deployment** → GitHub Actions deploy CDK stacks to AWS
+3. **Vercel Deployment** → Automatic deployment of Next.js app to Vercel
+4. **Testing** → Manual testing in preprod environment
+5. **Production Deployment** → Push to `main` branch (with approval gates)
+6. **Monitoring** → Continuous monitoring in both environments
 
 ## Environment Variables
 
@@ -722,18 +731,18 @@ NEXT_PUBLIC_APP_URL="..."
 
 ## Key Benefits of This Architecture
 
-1. **Complete Isolation**: Preprod and prod are completely separate cells in different AWS accounts
-2. **Security**: Separate IAM users prevent cross-environment access
-3. **Scalability**: CDK allows easy infrastructure modifications
-4. **Automation**: GitHub Actions handle deployment pipelines
-5. **Compliance**: Clear separation for audit and compliance requirements
-6. **Cost Control**: Environment-specific resource sizing
-7. **Testing**: Safe preprod environment for testing changes
-8. **Multi-Stack Design**: Modular architecture with separate stacks for different concerns
-9. **Unified Deployment**: Deploy all stacks with single command or deploy individually
-10. **Cross-Stack References**: Stacks can reference resources from other stacks
+1. **Complete Isolation**: Preprod and prod are completely separate environments
+2. **Security**: Separate AWS accounts and IAM users prevent cross-environment access
+3. **Scalability**: Vercel provides automatic scaling, CDK allows easy infrastructure modifications
+4. **Cost Efficiency**: No compute infrastructure costs on AWS, pay-per-use on Vercel
+5. **Automation**: GitHub Actions handle AWS infrastructure, Vercel handles app deployment
+6. **Compliance**: Clear separation for audit and compliance requirements
+7. **Performance**: Vercel's global CDN and edge functions for optimal performance
+8. **Testing**: Safe preprod environment for testing changes
+9. **Simplified Operations**: Vercel handles application scaling, monitoring, and deployments
+10. **Developer Experience**: Fast deployments and preview environments with Vercel
 11. **Context-Driven**: Environment-specific configurations via CDK context
-12. **Future-Proof**: Easy to add new stacks without modifying existing ones
+12. **Hybrid Benefits**: Best of both worlds - managed app hosting + controlled backend infrastructure
 
 ## Success Metrics
 
