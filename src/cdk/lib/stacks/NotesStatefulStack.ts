@@ -104,12 +104,6 @@ export class NotesStatefulStack extends cdk.Stack {
       exportName: `${environmentConfig.environment}-ApplicationSecurityGroupId`,
     });
 
-    new cdk.CfnOutput(this, 'LoadBalancerSecurityGroupId', {
-      value: stateful.vpc.loadBalancerSecurityGroup.securityGroupId,
-      description: 'Security group ID for load balancers',
-      exportName: `${environmentConfig.environment}-LoadBalancerSecurityGroupId`,
-    });
-
     // Add tags for resource organization
     cdk.Tags.of(this).add('Environment', environmentConfig.environment);
     cdk.Tags.of(this).add('Project', 'EverythingAtHand');
