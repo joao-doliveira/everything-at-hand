@@ -34,70 +34,13 @@ jobs:
           cd src/cdk
           npm ci
 
-      - name: Debug OIDC Token Claims
+      - name: Deployment Info
         run: |
-          echo "=== GitHub Context ==="
+          echo "🚀 Deploying to Preprod Environment"
           echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "Ref Name: ${{ github.ref_name }}"
-          echo "SHA: ${{ github.sha }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Event: ${{ github.event_name }}"
-          echo "=== Workflow Inputs ==="
-          echo "Input Branch: ${{ github.event.inputs.branch }}"
-          echo "Resolved Branch: ${{ github.event.inputs.branch || github.ref_name }}"
-          echo "=== Expected OIDC sub claim ==="
-          echo "repo:${{ github.repository }}:ref:${{ github.ref }}"
-          echo "=== Trust Policy Pattern ==="
-          echo "repo:joao-doliveira/everything-at-hand:ref:refs/heads/*"
-
-      - name: Debug AWS STS Token
-        run: |
-          echo "=== AWS STS Debug ==="
-          # Extract account ID from role ARN
-          ROLE_ARN="${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}"
-          ACCOUNT_ID=$(echo "$ROLE_ARN" | cut -d':' -f5)
-          echo "Role ARN: $ROLE_ARN"
-          echo "Extracted Account ID: $ACCOUNT_ID"
-          echo "OIDC Provider Account ID (from trust policy): 254192665051"
-          echo "AWS Region: sa-east-1"
-          echo "Session Name: GitHubActions-${{ github.run_id }}"
-          # Check if account IDs match
-          if [ "$ACCOUNT_ID" = "254192665051" ]; then
-            echo "✅ Account IDs match - issue is elsewhere"
-          else
-            echo "❌ Account ID MISMATCH - this is likely the problem!"
-            echo "   Role is in account: $ACCOUNT_ID"
-            echo "   OIDC provider is in account: 254192665051"
-          fi
-          # Try to get the web identity token (this should work)
-          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-            echo "OIDC token request URL is available"
-          else
-            echo "ERROR: OIDC token request environment not available"
-          fi
-
-      - name: Decode OIDC Token Claims
-        run: |
-          echo "=== OIDC Token Analysis ==="
-          # Get the OIDC token
-          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          
-          if [ "$OIDC_TOKEN" = "null" ] || [ -z "$OIDC_TOKEN" ]; then
-            echo "❌ Failed to retrieve OIDC token"
-          else
-            echo "✅ OIDC token retrieved successfully"
-            # Decode the JWT payload (second part)
-            PAYLOAD=$(echo "$OIDC_TOKEN" | cut -d'.' -f2)
-            # Add padding if needed for base64 decoding
-            case $((${#PAYLOAD} % 4)) in
-              2) PAYLOAD="${PAYLOAD}==" ;;
-              3) PAYLOAD="${PAYLOAD}=" ;;
-            esac
-            echo "=== Token Claims ==="
-            echo "$PAYLOAD" | base64 -d | jq .
-          fi
+          echo "Branch: ${{ github.event.inputs.branch || github.ref_name }}"
+          echo "Environment: preprod-deployment"
+          echo "Triggered by: ${{ github.actor }}"
 
       - name: Configure AWS Credentials for Preprod
         uses: aws-actions/configure-aws-credentials@v4
@@ -105,7 +48,7 @@ jobs:
           role-to-assume: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}
           aws-region: sa-east-1
           role-session-name: GitHubActions-${{ github.run_id }}
-          mask-aws-account-id: false
+          mask-aws-account-id: true
 
       - name: Deploy to Preprod
         run: |
