@@ -5,7 +5,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NotesStateful } from '../constructs/NotesStateful';
 import { EnvironmentConfig } from '../../bin/config/environments';
-import { NotesVpc } from '../constructs/NotesVpc';
 
 export interface NotesStatefulStackProps extends cdk.StackProps {
   environmentConfig: EnvironmentConfig;
@@ -16,8 +15,6 @@ export class NotesStatefulStack extends cdk.Stack {
   // Expose resources for other stacks to reference
   public readonly database: rds.DatabaseInstance;
   public readonly imagesBucket: s3.Bucket;
-
-  public readonly vpc: NotesVpc;
 
   constructor(scope: Construct, id: string, props: NotesStatefulStackProps) {
     super(scope, id, props);
@@ -38,7 +35,6 @@ export class NotesStatefulStack extends cdk.Stack {
     // Expose resources for cross-stack references
     this.database = stateful.database;
     this.imagesBucket = stateful.imagesBucket;
-    this.vpc = stateful.vpc;
     
     // Output important values
     new cdk.CfnOutput(this, 'DatabaseEndpoint', {
@@ -66,43 +62,6 @@ export class NotesStatefulStack extends cdk.Stack {
     });
     
 
-
-    // VPC Outputs
-    new cdk.CfnOutput(this, 'VpcId', {
-      value: stateful.vpc.vpc.vpcId,
-      description: 'VPC ID',
-      exportName: `${environmentConfig.environment}-VpcId`,
-    });
-
-    new cdk.CfnOutput(this, 'VpcCidr', {
-      value: stateful.vpc.vpc.vpcCidrBlock,
-      description: 'VPC CIDR Block',
-      exportName: `${environmentConfig.environment}-VpcCidr`,
-    });
-
-    new cdk.CfnOutput(this, 'ApplicationSubnets', {
-      value: stateful.vpc.vpc.privateSubnets.map(subnet => subnet.subnetId).join(','),
-      description: 'Private subnet IDs for applications',
-      exportName: `${environmentConfig.environment}-ApplicationSubnets`,
-    });
-
-    new cdk.CfnOutput(this, 'PublicSubnets', {
-      value: stateful.vpc.vpc.publicSubnets.map(subnet => subnet.subnetId).join(','),
-      description: 'Public subnet IDs for load balancers',
-      exportName: `${environmentConfig.environment}-PublicSubnets`,
-    });
-
-    new cdk.CfnOutput(this, 'DatabaseSubnets', {
-      value: stateful.vpc.vpc.isolatedSubnets.map(subnet => subnet.subnetId).join(','),
-      description: 'Isolated subnet IDs for databases',
-      exportName: `${environmentConfig.environment}-DatabaseSubnets`,
-    });
-
-    new cdk.CfnOutput(this, 'ApplicationSecurityGroupId', {
-      value: stateful.vpc.applicationSecurityGroup.securityGroupId,
-      description: 'Security group ID for applications',
-      exportName: `${environmentConfig.environment}-ApplicationSecurityGroupId`,
-    });
 
     // Add tags for resource organization
     cdk.Tags.of(this).add('Environment', environmentConfig.environment);
@@ -188,64 +147,6 @@ export class NotesStatefulStack extends cdk.Stack {
       ],
     });
 
-    // VPC Policy - permissions for networking resources
-    const vpcPolicy = new iam.ManagedPolicy(this, 'StatefulVPCPolicy', {
-      managedPolicyName: `EAH-Stateful-VPC-${environment}-${this.node.addr}`,
-      description: `VPC permissions for ${environment} stateful resources`,
-      statements: [
-        new iam.PolicyStatement({
-          sid: 'VPCManagement',
-          effect: iam.Effect.ALLOW,
-          actions: [
-            'ec2:CreateVpc',
-            'ec2:DeleteVpc',
-            'ec2:ModifyVpcAttribute',
-            'ec2:DescribeVpcs',
-            'ec2:CreateSubnet',
-            'ec2:DeleteSubnet',
-            'ec2:ModifySubnetAttribute',
-            'ec2:DescribeSubnets',
-            'ec2:CreateInternetGateway',
-            'ec2:DeleteInternetGateway',
-            'ec2:AttachInternetGateway',
-            'ec2:DetachInternetGateway',
-            'ec2:DescribeInternetGateways',
-            'ec2:CreateRouteTable',
-            'ec2:DeleteRouteTable',
-            'ec2:CreateRoute',
-            'ec2:DeleteRoute',
-            'ec2:AssociateRouteTable',
-            'ec2:DisassociateRouteTable',
-            'ec2:DescribeRouteTables',
-            'ec2:CreateSecurityGroup',
-            'ec2:DeleteSecurityGroup',
-            'ec2:AuthorizeSecurityGroupIngress',
-            'ec2:AuthorizeSecurityGroupEgress',
-            'ec2:RevokeSecurityGroupIngress',
-            'ec2:RevokeSecurityGroupEgress',
-            'ec2:DescribeSecurityGroups',
-            'ec2:CreateTags',
-            'ec2:DeleteTags',
-            'ec2:DescribeTags',
-            'ec2:DescribeAvailabilityZones',
-            'ec2:DescribeAccountAttributes',
-            'ec2:CreateNatGateway',
-            'ec2:DeleteNatGateway',
-            'ec2:DescribeNatGateways',
-            'ec2:AllocateAddress',
-            'ec2:ReleaseAddress',
-            'ec2:DescribeAddresses',
-          ],
-          resources: ['*'], // EC2 describe operations require * resource
-          conditions: {
-            StringEquals: {
-              'aws:RequestedRegion': [region],
-            },
-          },
-        }),
-      ],
-    });
-
     // Secrets Manager Policy - permissions for database credentials
     const secretsPolicy = new iam.ManagedPolicy(this, 'StatefulSecretsPolicy', {
       managedPolicyName: `EAH-Stateful-Secrets-${environment}-${this.node.addr}`,
@@ -276,11 +177,10 @@ export class NotesStatefulStack extends cdk.Stack {
     // Attach all policies to the deployment role
     deploymentRole.addManagedPolicy(rdsPolicy);
     deploymentRole.addManagedPolicy(s3Policy);
-    deploymentRole.addManagedPolicy(vpcPolicy);
     deploymentRole.addManagedPolicy(secretsPolicy);
 
     new cdk.CfnOutput(this, 'AttachedPolicies', {
-      value: [rdsPolicy.managedPolicyName, s3Policy.managedPolicyName, vpcPolicy.managedPolicyName, secretsPolicy.managedPolicyName].join(','),
+      value: [rdsPolicy.managedPolicyName, s3Policy.managedPolicyName, secretsPolicy.managedPolicyName].join(','),
       description: 'Names of managed policies attached by this stack',
     });
   }

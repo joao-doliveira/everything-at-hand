@@ -33,6 +33,7 @@ export class BaseCdkPermissions extends Construct {
             `arn:aws:iam::${accountId}:role/cdk-*-deploy-role-*`,
             `arn:aws:iam::${accountId}:role/cdk-*-file-publishing-role-*`,
             `arn:aws:iam::${accountId}:role/cdk-*-image-publishing-role-*`,
+            `arn:aws:iam::${accountId}:role/cdk-*-lookup-role-*`,
           ],
           conditions: {
             StringEquals: {
@@ -72,6 +73,7 @@ export class BaseCdkPermissions extends Construct {
           ],
           resources: [
             `arn:aws:cloudformation:${region}:${accountId}:stack/Notes*/*`,
+            `arn:aws:cloudformation:${region}:${accountId}:stack/BaseCdkPermissionsStack/*`,
             `arn:aws:cloudformation:${region}:${accountId}:stack/CDKToolkit/*`,
           ],
         }),
