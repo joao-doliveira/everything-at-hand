@@ -15,6 +15,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,11 +34,21 @@ jobs:
           cd src/cdk
           npm ci
 
+      - name: Debug OIDC Token Claims
+        run: |
+          echo "GitHub Repository: ${{ github.repository }}"
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "GitHub SHA: ${{ github.sha }}"
+          echo "Branch Name: ${{ github.event.inputs.branch || github.ref_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Event Name: ${{ github.event_name }}"
+
       - name: Configure AWS Credentials for Preprod
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}
           aws-region: sa-east-1
+          role-session-name: GitHubActions-${{ github.run_id }}
 
       - name: Deploy to Preprod
         run: |
