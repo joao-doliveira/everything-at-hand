@@ -77,6 +77,28 @@ jobs:
             echo "ERROR: OIDC token request environment not available"
           fi
 
+      - name: Decode OIDC Token Claims
+        run: |
+          echo "=== OIDC Token Analysis ==="
+          # Get the OIDC token
+          OIDC_TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          
+          if [ "$OIDC_TOKEN" = "null" ] || [ -z "$OIDC_TOKEN" ]; then
+            echo "❌ Failed to retrieve OIDC token"
+          else
+            echo "✅ OIDC token retrieved successfully"
+            # Decode the JWT payload (second part)
+            PAYLOAD=$(echo "$OIDC_TOKEN" | cut -d'.' -f2)
+            # Add padding if needed for base64 decoding
+            case $((${#PAYLOAD} % 4)) in
+              2) PAYLOAD="${PAYLOAD}==" ;;
+              3) PAYLOAD="${PAYLOAD}=" ;;
+            esac
+            echo "=== Token Claims ==="
+            echo "$PAYLOAD" | base64 -d | jq .
+          fi
+
       - name: Configure AWS Credentials for Preprod
         uses: aws-actions/configure-aws-credentials@v4
         with:
