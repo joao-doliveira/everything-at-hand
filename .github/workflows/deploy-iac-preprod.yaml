@@ -54,13 +54,25 @@ jobs:
       - name: Debug AWS STS Token
         run: |
           echo "=== AWS STS Debug ==="
-          echo "Role ARN: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}"
+          # Extract account ID from role ARN
+          ROLE_ARN="${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}"
+          ACCOUNT_ID=$(echo "$ROLE_ARN" | cut -d':' -f5)
+          echo "Role ARN: $ROLE_ARN"
+          echo "Extracted Account ID: $ACCOUNT_ID"
+          echo "OIDC Provider Account ID (from trust policy): 254192665051"
           echo "AWS Region: sa-east-1"
           echo "Session Name: GitHubActions-${{ github.run_id }}"
+          # Check if account IDs match
+          if [ "$ACCOUNT_ID" = "254192665051" ]; then
+            echo "✅ Account IDs match - issue is elsewhere"
+          else
+            echo "❌ Account ID MISMATCH - this is likely the problem!"
+            echo "   Role is in account: $ACCOUNT_ID"
+            echo "   OIDC provider is in account: 254192665051"
+          fi
           # Try to get the web identity token (this should work)
           if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
             echo "OIDC token request URL is available"
-            echo "Token request URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
           else
             echo "ERROR: OIDC token request environment not available"
           fi
