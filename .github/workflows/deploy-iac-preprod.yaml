@@ -51,6 +51,20 @@ jobs:
           echo "=== Trust Policy Pattern ==="
           echo "repo:joao-doliveira/everything-at-hand:ref:refs/heads/*"
 
+      - name: Debug AWS STS Token
+        run: |
+          echo "=== AWS STS Debug ==="
+          echo "Role ARN: ${{ secrets.PREPROD_DEPLOYMENT_ROLE_ARN }}"
+          echo "AWS Region: sa-east-1"
+          echo "Session Name: GitHubActions-${{ github.run_id }}"
+          # Try to get the web identity token (this should work)
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            echo "OIDC token request URL is available"
+            echo "Token request URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          else
+            echo "ERROR: OIDC token request environment not available"
+          fi
+
       - name: Configure AWS Credentials for Preprod
         uses: aws-actions/configure-aws-credentials@v4
         with:
