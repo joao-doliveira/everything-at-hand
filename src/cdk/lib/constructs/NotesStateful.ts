@@ -18,12 +18,21 @@ export class NotesStateful extends Construct {
     
     const { environmentConfig } = props;
     
-    // Get the default VPC
-    const defaultVpc = ec2.Vpc.fromLookup(this, 'DefaultVpc', {
-      isDefault: true,
+    // Create a minimal VPC for RDS - simpler than custom networking but avoids lookup
+    const vpc = new ec2.Vpc(this, 'SimpleVpc', {
+      ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
+      maxAzs: 2, // Use only 2 AZs for cost efficiency
+      natGateways: 0, // No NAT gateways needed for database-only VPC
+      subnetConfiguration: [
+        {
+          cidrMask: 24,
+          name: 'Database',
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED, // Database subnets
+        },
+      ],
     });
     
-    // Database with environment-specific sizing - using default VPC
+    // Database with environment-specific sizing
     this.database = new rds.DatabaseInstance(this, 'Database', {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_15,
@@ -41,8 +50,11 @@ export class NotesStateful extends Construct {
       deletionProtection: environmentConfig.deletionProtection,
       backupRetention: cdk.Duration.days(3),
       deleteAutomatedBackups: true,
-      // Use default VPC - much simpler!
-      vpc: defaultVpc,
+      // Use our simple VPC
+      vpc: vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+      },
       publiclyAccessible: false, // Keep it secure
       allowMajorVersionUpgrade: false,
       autoMinorVersionUpgrade: true,

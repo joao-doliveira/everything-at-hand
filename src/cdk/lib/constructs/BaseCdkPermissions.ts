@@ -165,17 +165,63 @@ export class BaseCdkPermissions extends Construct {
       ],
     });
 
+    // EC2 permissions for minimal VPC operations
+    const ec2Policy = new iam.ManagedPolicy(this, 'EC2Policy', {
+      managedPolicyName: `EAH-CDK-EC2-${environment}-${this.node.addr}`,
+      description: `EC2 permissions for ${environment} CDK operations`,
+      statements: [
+        new iam.PolicyStatement({
+          sid: 'EC2MinimalVPCAccess',
+          effect: iam.Effect.ALLOW,
+          actions: [
+            // VPC operations
+            'ec2:CreateVpc',
+            'ec2:DeleteVpc',
+            'ec2:DescribeVpcs',
+            'ec2:ModifyVpcAttribute',
+            // Subnet operations
+            'ec2:CreateSubnet',
+            'ec2:DeleteSubnet',
+            'ec2:DescribeSubnets',
+            'ec2:ModifySubnetAttribute',
+            // Route table operations
+            'ec2:CreateRouteTable',
+            'ec2:DeleteRouteTable',
+            'ec2:DescribeRouteTables',
+            'ec2:AssociateRouteTable',
+            'ec2:DisassociateRouteTable',
+            // Security group operations (for RDS)
+            'ec2:CreateSecurityGroup',
+            'ec2:DeleteSecurityGroup',
+            'ec2:DescribeSecurityGroups',
+            'ec2:AuthorizeSecurityGroupIngress',
+            'ec2:AuthorizeSecurityGroupEgress',
+            'ec2:RevokeSecurityGroupIngress',
+            'ec2:RevokeSecurityGroupEgress',
+            // General describe operations
+            'ec2:DescribeAvailabilityZones',
+            'ec2:DescribeAccountAttributes',
+            // Tagging
+            'ec2:CreateTags',
+            'ec2:DeleteTags',
+            'ec2:DescribeTags',
+          ],
+          resources: ['*'], // EC2 operations often require * resource
+          conditions: {
+            StringEquals: {
+              'aws:RequestedRegion': [region],
+            },
+          },
+        }),
+      ],
+    });
+
     // Attach all base CDK policies to the deployment role
     deploymentRole.addManagedPolicy(cdkBootstrapPolicy);
     deploymentRole.addManagedPolicy(cloudFormationPolicy);
     deploymentRole.addManagedPolicy(s3AssetsPolicy);
     deploymentRole.addManagedPolicy(ssmPolicy);
     deploymentRole.addManagedPolicy(ecrPolicy);
-
-    // Output information
-    new cdk.CfnOutput(this, 'BaseCdkPoliciesAttached', {
-      value: '5',
-      description: 'Number of base CDK policies attached',
-    });
+    deploymentRole.addManagedPolicy(ec2Policy);
   }
 }
