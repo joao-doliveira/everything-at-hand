@@ -36,7 +36,7 @@ export const environments: Record<string, EnvironmentConfig> = {
     allocatedStorage: 20,
   },
   prod: {
-    account: getRequiredEnvVar('PREPROD_AWS_ACCOUNT_ID', 'preprod'),
+    account: getRequiredEnvVar('PREPROD_AWS_ACCOUNT_ID', 'preprod'), // TODO: change to prod when AWS account is created
     region: 'sa-east-1',
     environment: 'prod',
     resourcePrefix: 'eah-preprod',
