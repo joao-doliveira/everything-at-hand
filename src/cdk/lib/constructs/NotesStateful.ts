@@ -62,7 +62,7 @@ export class NotesStateful extends Construct {
     
     // S3 bucket for images
     this.imagesBucket = new s3.Bucket(this, 'ImagesBucket', {
-      bucketName: `${environmentConfig.resourcePrefix}-images-${cdk.Aws.ACCOUNT_ID}`,
+      bucketName: `${environmentConfig.resourcePrefix}-images`,
       cors: [{
         allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT, s3.HttpMethods.DELETE],
         allowedOrigins: ['*'], // Configure based on environment in production
